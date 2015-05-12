@@ -7,8 +7,7 @@
 
 module Control.Monad.Trans.State.Machine where
 
-import Control.Monad.State.Class (MonadState, get)
-import Control.Monad.Trans.State.Lazy hiding (get)
+import Control.Monad.Trans.State.Lazy
 
 import Data.Typeable (Typeable)
 
@@ -60,7 +59,7 @@ stop = return Stop
 
 -- | Suspend a state machine computation, giving a pointer to the
 --   next computation.
-continue :: (Typeable s, MonadState s (StateT s m))
+continue :: (Monad m, Typeable s)
          => StaticPtr (StateT s m (SM s m))
          -> StateT s m (SM s m)
 continue sp = do

@@ -56,7 +56,6 @@ library
   -- Other library packages from which modules are imported.
   build-depends:        base >=4.8 && <5
                       , binary
-                      , mtl
                       , transformers
 
   -- Directories containing source files.
@@ -73,6 +72,5 @@ Executable simple
 
   default-language:   Haskell2010
   Build-Depends:      base >=4.8 && <5
-                    , mtl
                     , static-cont
                     , transformers
