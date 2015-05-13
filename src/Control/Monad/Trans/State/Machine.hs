@@ -5,7 +5,14 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StaticPointers             #-}
 
-module Control.Monad.Trans.State.Machine where
+module Control.Monad.Trans.State.Machine (
+    SM
+  , stepSM
+  , continue
+  , fork
+  , start
+  , stop
+  ) where
 
 import Control.Monad.Trans.State.Lazy
 
