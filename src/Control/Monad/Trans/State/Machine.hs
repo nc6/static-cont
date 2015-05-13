@@ -16,8 +16,11 @@ module Control.Monad.Trans.State.Machine (
 
 import Control.Monad.Trans.State.Lazy
 
+import Data.Binary (Binary)
+import qualified Data.Binary as B
 import Data.Typeable (Typeable)
 
+import GHC.Fingerprint.Type (Fingerprint(..))
 import GHC.Generics (Generic)
 import GHC.StaticPtr
 
@@ -26,6 +29,15 @@ import System.IO.Unsafe (unsafePerformIO)
 -- | Stored step in a state machine with no final result type
 data StoredStep s = StoredStep s StaticKey
   deriving (Generic, Typeable)
+
+instance Binary s => Binary (StoredStep s) where
+  put (StoredStep s (Fingerprint w1 w2)) = do
+    B.put s >> B.put w1 >> B.put w2
+  get = do
+    s <- B.get
+    w1 <- B.get
+    w2 <- B.get
+    return $ StoredStep s (Fingerprint w1 w2)
 
 -- | Run a stored step, yielding the next step.
 runStep :: forall s m. (Monad m, Typeable s)
@@ -48,6 +60,8 @@ data SM s (m :: * -> *) =
   | Fork (SM s m)
   | Stop
   deriving (Generic, Typeable)
+
+instance Binary s => Binary (SM s m)
 
 -- | Executes a single step of a state machine, returning the next step(s).
 stepSM :: (Typeable s, Monad m) => SM s m -> m [SM s m]
