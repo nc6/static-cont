@@ -14,38 +14,20 @@ first :: StateT Int IO (SM Int IO)
 first = do
   n <- get
   put $ n + 3
-  continue ptr2
+  continue (static middle)
 middle :: StateT Int IO (SM Int IO)
 middle =  do
   n <- get
   put $ n*2
-  continue ptr3
+  continue (static end)
 end :: StateT Int IO (SM Int IO)
 end = do
   n <- get
   liftIO $ putStrLn . show $ n
   stop
-ptr1 = static first
-ptr2 = static middle
-ptr3 = static end
 
 stateMachine :: StateT Int IO (SM Int IO)
-stateMachine = continue ptr1 >>= fork where
-  -- stage1 = static (\k -> do
-  --   n <- get
-  --   put $ n + 3
-  --   continue k
-  --   )
-  -- stage2 = static (\k -> do
-  --   n <- get
-  --   put $ n * 2
-  --   continue k
-  --   )
-  -- stage3 = static (do
-  --   n <- get
-  --   liftIO $ putStrLn . show $ n
-  --   stop
-  --   )
+stateMachine = continue (static first) >>= fork
 
 runMachine :: Typeable a
            => [SM a IO] -> IO ()
