@@ -37,21 +37,23 @@ runStep (StoredStep s key) =
 -- * @s@ The state threading through the computation
 -- * @m@ The underlying monad.
 data SM s (m :: * -> *) =
-    Start (StateT s m (SM s m)) s
-  | Continue (StoredStep s)
+    Continue (StoredStep s)
   | Fork (SM s m)
   | Stop
+  deriving (Generic, Typeable)
 
 -- | Executes a single step of a state machine, returning the next step(s).
 stepSM :: (Typeable s, Monad m) => SM s m -> m [SM s m]
-stepSM (Start a s) = evalStateT a s >>= \x -> return [x]
 stepSM (Continue m) = runStep m >>= \x -> return [x]
 stepSM (Fork a) = stepSM a >>= \b -> return $ a:b
 stepSM Stop = return []
 
 -- | Begin a state machine
-start :: forall m s. Monad m => StateT s m (SM s m) -> s -> SM s m
-start = Start
+start :: forall m s. Monad m
+      => StaticPtr (StateT s m (SM s m))
+      -> s
+      -> SM s m
+start sp s = Continue $ StoredStep s (staticKey sp)
 
 -- | Terminate a state machine
 stop :: forall m s. Monad m => StateT s m (SM s m)

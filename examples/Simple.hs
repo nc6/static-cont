@@ -30,7 +30,22 @@ ptr2 = static middle
 ptr3 = static end
 
 stateMachine :: StateT Int IO (SM Int IO)
-stateMachine = continue ptr1 >>= fork
+stateMachine = continue ptr1 >>= fork where
+  -- stage1 = static (\k -> do
+  --   n <- get
+  --   put $ n + 3
+  --   continue k
+  --   )
+  -- stage2 = static (\k -> do
+  --   n <- get
+  --   put $ n * 2
+  --   continue k
+  --   )
+  -- stage3 = static (do
+  --   n <- get
+  --   liftIO $ putStrLn . show $ n
+  --   stop
+  --   )
 
 runMachine :: Typeable a
            => [SM a IO] -> IO ()
@@ -40,4 +55,6 @@ runMachine (x:xs) = do
   runMachine (xs ++ sm')
 
 main :: IO ()
-main = runMachine [start stateMachine 0, start stateMachine 1]
+main = runMachine [start sm1 0, start sm1 1]
+  where
+    sm1 = static stateMachine
