@@ -73,19 +73,29 @@ data SM s (m :: * -> *) =
 
 instance Binary s => Binary (SM s m)
 
+-- | Context for executing state machines
+data StepContext =
+    NormalContext
+  | SwitchContext
+
 -- | Executes a single step of a state machine, returning the next step(s).
 stepSM :: (Typeable s, Monad m) => SM s m -> m [SM s m]
-stepSM (Continue m) = runStep m >>= \x -> return [x]
-stepSM (Fork a) = stepSM a >>= \b -> return $ a:b
-stepSM Stop = return []
-stepSM Suspend = error "impossible"
-stepSM (Switch alts) = runSwitch alts [] where
-  runSwitch todo done = case todo of
-    [] -> return [Switch $ reverse done]
-    x:xs -> stepSM x >>= \case
-      [Stop] -> runSwitch xs done
-      [Suspend] -> runSwitch xs (x : done)
-      y -> return y
+stepSM = stepSMCtx NormalContext
+  where
+    stepSMCtx _ (Fork a) = stepSM a >>= \b -> return $ a:b
+    stepSMCtx _ Stop = return []
+    stepSMCtx _ Suspend = error "impossible"
+    stepSMCtx NormalContext old@(Continue m) = runStep m >>= \case
+      Suspend -> return [old]
+      x -> return [x]
+    stepSMCtx SwitchContext (Continue m) = runStep m >>= \x -> return [x]
+    stepSMCtx _ (Switch alts) = runSwitch alts [] where
+      runSwitch todo done = case todo of
+        [] -> return [Switch $ reverse done]
+        x:xs -> stepSMCtx SwitchContext x >>= \case
+          [Stop] -> runSwitch xs done
+          [Suspend] -> runSwitch xs (x : done)
+          y -> return y
 
 -- | Begin a state machine
 start :: forall m s. Monad m
