@@ -86,3 +86,15 @@ Executable stored
                     , binary
                     , static-cont
                     , transformers
+
+Executable switch
+  Hs-Source-Dirs:     examples
+  Main-Is:            Switch.hs
+
+  Ghc-Options: -threaded -Wall
+
+  default-language:   Haskell2010
+  Build-Depends:      base >=4.8 && <5
+                    , binary
+                    , static-cont
+                    , transformers
