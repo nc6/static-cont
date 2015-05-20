@@ -2,9 +2,15 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StaticPointers             #-}
 
+-- | Storable state machines.
+--   This module allows you to take a set of stateful computations
+--   and express them as a serialisable state machine. Transitions
+--   can be expressed using @continue@, which takes a stable pointer
+--   to the next state and yields a serialisable continuation.
 module Control.Monad.Trans.State.Machine (
     SM
   , stepSM
@@ -12,6 +18,8 @@ module Control.Monad.Trans.State.Machine (
   , fork
   , start
   , stop
+  , suspend
+  , switch
   ) where
 
 import Control.Monad.Trans.State.Lazy
@@ -58,16 +66,36 @@ runStep (StoredStep s key) =
 data SM s (m :: * -> *) =
     Continue (StoredStep s)
   | Fork (SM s m)
+  | Suspend
+  | Switch [SM s m]
   | Stop
   deriving (Generic, Typeable)
 
 instance Binary s => Binary (SM s m)
 
+-- | Context for executing state machines
+data StepContext =
+    NormalContext
+  | SwitchContext
+
 -- | Executes a single step of a state machine, returning the next step(s).
 stepSM :: (Typeable s, Monad m) => SM s m -> m [SM s m]
-stepSM (Continue m) = runStep m >>= \x -> return [x]
-stepSM (Fork a) = stepSM a >>= \b -> return $ a:b
-stepSM Stop = return []
+stepSM = stepSMCtx NormalContext
+  where
+    stepSMCtx _ (Fork a) = stepSM a >>= \b -> return $ a:b
+    stepSMCtx _ Stop = return []
+    stepSMCtx _ Suspend = error "impossible"
+    stepSMCtx NormalContext old@(Continue m) = runStep m >>= \case
+      Suspend -> return [old]
+      x -> return [x]
+    stepSMCtx SwitchContext (Continue m) = runStep m >>= \x -> return [x]
+    stepSMCtx _ (Switch alts) = runSwitch alts [] where
+      runSwitch todo done = case todo of
+        [] -> return [Switch $ reverse done]
+        x:xs -> stepSMCtx SwitchContext x >>= \case
+          [Stop] -> runSwitch xs done
+          [Suspend] -> runSwitch xs (x : done)
+          y -> return y
 
 -- | Begin a state machine
 start :: forall m s. Monad m
@@ -79,6 +107,10 @@ start sp s = Continue $ StoredStep s (staticKey sp)
 -- | Terminate a state machine
 stop :: forall m s. Monad m => StateT s m (SM s m)
 stop = return Stop
+
+-- | Suspend a state machine, deferring it until later.
+suspend :: forall m s. Monad m => StateT s m (SM s m)
+suspend = return Suspend
 
 -- | Suspend a state machine computation, giving a pointer to the
 --   next computation.
@@ -94,3 +126,8 @@ continue sp = do
 --   the next steps.
 fork :: forall m s. Monad m => SM s m -> StateT s m (SM s m)
 fork = return . Fork
+
+-- | Switch between a number of state machines according to whichever
+--   one transitions first. Options are tried from the left across.
+switch :: forall m s. Monad m => [SM s m] -> StateT s m (SM s m)
+switch = return . Switch

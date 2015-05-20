@@ -10,14 +10,27 @@ import Data.Typeable (Typeable)
 
 first :: StateT Int IO (SM Int IO)
 first = do
+  b1 <- continue (static br1)
+  b2 <- continue (static br2)
+  switch [b1,b2]
+br1 :: StateT Int IO (SM Int IO)
+br1 = do
+  liftIO $ putStrLn "Awaking br1"
   n <- get
-  put $ n + 3
-  continue (static middle)
-middle :: StateT Int IO (SM Int IO)
-middle =  do
+  if n > 10 then
+    continue (static end)
+  else do
+    liftIO $ putStrLn "Suspending br1"
+    suspend
+br2 :: StateT Int IO (SM Int IO)
+br2 = do
+  liftIO $ putStrLn "Awaking br2"
   n <- get
-  put $ n*2
-  continue (static end)
+  if n < 5 then
+    continue (static end)
+  else do
+    liftIO $ putStrLn "Suspending br2"
+    suspend
 end :: StateT Int IO (SM Int IO)
 end = do
   n <- get
@@ -25,7 +38,7 @@ end = do
   stop
 
 stateMachine :: StateT Int IO (SM Int IO)
-stateMachine = continue (static first) >>= fork
+stateMachine = continue (static first)
 
 runMachine :: Typeable a
            => [SM a IO] -> IO ()
@@ -35,6 +48,6 @@ runMachine (x:xs) = do
   runMachine (xs ++ sm')
 
 main :: IO ()
-main = runMachine [start sm1 0, start sm1 1]
+main = runMachine [start sm1 0, start sm1 11]
   where
     sm1 = static stateMachine
